@@ -119,6 +119,63 @@ test('declares the standard DSH bundle patch', async () => {
   assert.match(patch, /name: dsh-opencode-go-pool/)
 })
 
+/** Read the leading major version of a dependency range such as `^1.0.2` or `>=1.0.2 <2`. */
+function majorOf(range) {
+  const match = /^[^\d]*(\d+)/.exec(range)
+  return match === null ? Number.NaN : Number(match[1])
+}
+
+/** Read the version triple a range starts at, so a range floor compares numerically. */
+function floorOf(range) {
+  const match = /(\d+)\.(\d+)\.(\d+)/.exec(range)
+  return match === null ? null : match.slice(1).map(Number)
+}
+
+/** Whether a version's first three components sit at or above one range floor. */
+function atLeast(version, floor) {
+  const parts = floorOf(version)
+  if (parts === null || floor === null) return false
+  return parts.some((part, index) => part > floor[index])
+    || parts.every((part, index) => part === floor[index])
+}
+
+/**
+ * The host's own adapter pins the pi-ai major it accepts, and the plugin hands
+ * that adapter pi-ai model objects. A host release that moves pi-ai to a new
+ * major is invisible in this repository unless the manifest moves with it: the
+ * profile resolver substitutes the host's copy for a declared peer, and the
+ * DSH compatibility preflight only checks `@deepseek-ai/dsh*` peers, so neither
+ * the local dev copy nor the preflight reveals the skew. 0.2.1-alpha.2 moved
+ * `dsh-llm-pi-ai` from pi-ai `^0.87.1` to `^1.0.2` exactly that way.
+ */
+test('keeps the declared pi-ai major aligned with the installed DSH adapter', async (t) => {
+  const manifest = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8'))
+  const declared = manifest.peerDependencies['@earendil-works/pi-ai']
+  assert.ok(declared, 'the plugin must declare pi-ai as a peer so linked checkouts use the host copy')
+
+  let adapter
+  try {
+    adapter = JSON.parse(await readFile(
+      join(repoDir, 'node_modules/@deepseek-ai/dsh-llm-pi-ai/package.json'), 'utf8',
+    ))
+  } catch {
+    t.skip('@deepseek-ai/dsh-llm-pi-ai not installed — harness peer deps missing')
+    return
+  }
+  const required = adapter.dependencies?.['@earendil-works/pi-ai']
+  assert.ok(required, 'the installed DSH adapter must declare the pi-ai it consumes')
+  assert.equal(
+    majorOf(declared), majorOf(required),
+    `this manifest declares pi-ai ${declared} while DSH ${adapter.version} requires ${required}`,
+  )
+
+  const installed = JSON.parse(await readFile(
+    join(repoDir, 'node_modules/@earendil-works/pi-ai/package.json'), 'utf8',
+  )).version
+  assert.equal(majorOf(installed), majorOf(declared), `the local dev copy ${installed} left the declared major`)
+  assert.ok(atLeast(installed, floorOf(declared)), `the local dev copy ${installed} sits below the floor ${declared}`)
+})
+
 test('ships every invocation codec as strict with a create() factory', () => {
   assert.ok(TYPERT.invocations.length > 0)
   for (const invocation of TYPERT.invocations) {

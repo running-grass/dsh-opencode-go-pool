@@ -9,6 +9,10 @@
 > - **适配器**：`PiAiAdapter` 的 `auth`（`{credentials, authContext}`）由可选改为必填；插件新增 `createPiAiAuth()`（不写 pi-ai 凭据记录，Key 一律走 `apiKeyEnv` 引用 + credentials seam）。`ResolvedPiAiProviderProfile` 不再读取 `modelCapabilities`。
 > - **依赖**：`peerDependencies` 由 `^0.1.0-rc.5` 提升为 `^0.2.1-alpha.1`（`@deepseek-ai/cordis ~4.0.5-alpha.1`、`schemastery ~3.18.5-alpha.1`、`@earendil-works/pi-ai ^0.87.1`）。
 > - **客户端**：`dsh.client.inject` 中的 `@deepseek-ai/dsh-client-runtime` 在 0.2.1 已不存在，改为实际提供 `slots`/设置页外壳的 `@deepseek-ai/dsh-client-ui-slots`。
+>
+> **版本适配（2026-10-10，DSH `0.2.1-alpha.2`）**：本次 release 对本插件的影响只有一处依赖变更，设置 seam、Typert 清单、客户端 slot 契约都没动（`LlmRuntime.prepareCall` 新增可选第三参 `configure`，属追加）。差异如下：
+> - **pi-ai 大版本**：alpha.2 的 `dsh-llm-pi-ai` 把自身依赖由 `@earendil-works/pi-ai@^0.87.1` 抬到 `^1.0.2`（alpha.1→alpha.2 唯一被本插件消费的依赖变更），宿主的运行时副本随之为 1.0.2。本插件把它声明为**对等依赖**：链接 checkout 的 profile 解析会把宿主副本换进该位置，但 DSH 兼容性预检只检查 `@deepseek-ai/dsh*` 对等项、且对等范围不参与解析筛选，因此旧的 `^0.87.1` 既不报错、也让本地 dev 副本（0.87.1）与运行副本（1.0.2）长期分叉，单元测试测的是宿主并不使用的那个大版本。现已对齐为 `^1.0.2`，本地副本随之为 1.x，并新增回归 `test/current-dsh-import.test.mjs` 的 “keeps the declared pi-ai major aligned with the installed DSH adapter”。
+> - **依赖策略**：必须共享实例的 DSH 包一律留在 `peerDependencies`（宿主副本优先，profile 解析层负责替换），范围按下限写法，不落精确版本、也不把下限提到“本次测试过的 alpha.2”（`^0.2.1-alpha.2` 会与仍在 alpha.1 的运行时互斥）。`^0.2.1-alpha.1` 覆盖 0.2.1-alpha.N / 0.2.1 稳定版 / 0.2.2-alpha.N，不含 0.3.0。dev-only 的校验工具（`@deepseek-ai/dsh-typert-loader`）反之保留精确钉版，测试才有确定性。详见 DSH `docs/user/develop/basic/publish.md` 与 `packages/boot/app-boot/src/plugin-compatibility.ts`。
 
 ---
 

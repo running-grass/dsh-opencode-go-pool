@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）插件：**OpenCode Go 套餐的多 Key 池** —— �
 
 - 每个 OpenCode Go 账号有独立的 5 小时滚动 + 每周 + 每月额度。DSH 官方供应商（`dsh-llm-pi-ai` 的 `opencode-go` 路由）每个供应商只能填一个 Key，额度耗尽后必须手动更换——本插件接管该路由，用 Key 池 + 自动故障切换解决。
 - 余额数据来自 OpenCode 官方用量接口（与官网同源，见下文）。
-- **运行环境**：DSH `0.2.1-alpha.1`（`peerDependencies` 锁定该系列；0.1.x 的设置 seam 仍兼容，但新特性以 0.2.1 的 volatile 配置为准）。
+- **运行环境**：DSH `0.2.1-alpha.2`（`peerDependencies` 写成 `^0.2.1-alpha.1` 系列：覆盖 0.2.1 的 prerelease 与稳定版，不含 0.3.0；0.1.x 的设置 seam 仍兼容，但新特性以 0.2.1 的 volatile 配置为准）。
 
 ## 功能
 
@@ -122,7 +122,7 @@ Authorization: Bearer <OpenCode Go API Key>
 
 - Host 半：`index.js`（插件 + 池适配器 + 接管）、`pool.js`（状态机）、`usage.js`（用量网关）、`models.js`（模型目录拉取）、`typert.host.js`（RPC 清单）
 - 浏览器半：`client.js`（lazy-CJS bundle，`window.__ModuleLoader__.load` 格式）
-- 测试：`node --test test/*.test.mjs`（75 项，依赖装齐后 0 跳过）：状态机 17（`pool`）、用量网关 7（`usage`）、模型目录 8（`models`）、cordis 烟测 12（`smoke`：路由接管、静默切换、0.2.1 forms seam、0.1.x register/configEditor 旧 seam）、真实服务集成 9（`integration`：真实 `LlmRuntime` 注册表 / `llm.stream` 全链路 / settings 写入契约 / 接管握手）、真实 SettingsForms 3（`settings-forms`）、适配器画像与 auth 3（`profile`）、导入与 Typert 清单 7、客户端 bundle 执行与渲染 9（`client`）。缺少 harness 依赖时相关测试优雅跳过。
+- 测试：`node --test test/*.test.mjs`（76 项，依赖装齐后 0 跳过）：状态机 17（`pool`）、用量网关 7（`usage`）、模型目录 8（`models`）、cordis 烟测 12（`smoke`：路由接管、静默切换、0.2.1 forms seam、0.1.x register/configEditor 旧 seam）、真实服务集成 9（`integration`：真实 `LlmRuntime` 注册表 / `llm.stream` 全链路 / settings 写入契约 / 接管握手）、真实 SettingsForms 3（`settings-forms`）、适配器画像与 auth 3（`profile`）、导入与 Typert 清单 8（含宿主对等依赖对齐）、客户端 bundle 执行与渲染 9（`client`）。缺少 harness 依赖时相关测试优雅跳过。
 
 ```sh
 node --test test/*.test.mjs
@@ -139,6 +139,11 @@ node --test test/*.test.mjs
 MIT
 
 ## 验证记录
+
+**0.2.1-alpha.2 升级验证（2026-10-10）**：`node --test test/*.test.mjs` → 76 项全部通过、0 跳过，跑在 `0.2.1-alpha.2` 依赖上（`@deepseek-ai/cordis@4.0.5-alpha.1`、`schemastery@3.18.5-alpha.1`、`@earendil-works/pi-ai@1.1.0`）。本次 release 对本插件只有一处依赖变更：
+
+- **pi-ai `^0.87.1` → `^1.0.2`**：alpha.2 的 `dsh-llm-pi-ai` 抬了大版本（宿主运行时副本为 1.0.2），而本插件把它声明为对等依赖。链接 checkout 时 profile 解析层会用宿主副本替换该位置，但预检只查 `@deepseek-ai/dsh*` 对等项、对等范围也不参与解析筛选，所以旧范围不会报错，只会让本地 dev 副本（0.87.1）与运行副本（1.0.2）分叉——测试测的不是宿主实际加载的那个大版本。现对齐为 `^1.0.2` 并新增回归测试固定这条不变式。
+- alpha.2 的其余改动均未触及本插件契约：设置 seam（`SettingsForms` volatile / `settings.update|replace`）、客户端 `settings.section` slot 契约、Typert loader 校验规则都没变；`LlmRuntime.prepareCall(config, signal?, configure?)` 为追加参数；`LlmModelReasoningInfo.efforts` 只是把顺序约定写清楚（由小到大，本插件动态模型档位 `off/high/max` 已符合）。
 
 **0.2.1-alpha.1 升级验证（2026-10-08）**：`node --test test/*.test.mjs` → 75 项全部通过、0 跳过，跑在 registry 安装的 `0.2.1-alpha.1` 依赖上（`@deepseek-ai/cordis@4.0.5-alpha.1`、`schemastery@3.18.5-alpha.1`、`@earendil-works/pi-ai@0.87.1`）。其中：
 
